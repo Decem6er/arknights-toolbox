@@ -20,7 +20,9 @@
     <div class="mdui-dialog-content mdui-p-b-0">
       <div class="zone-wrap" v-for="(codes, zoneId) in zone2CodesByServer" :key="zoneId">
         <div class="zone-header">
-          <div class="zone-name mdui-valign">{{ $t(`zone.${zoneId}`) }}</div>
+          <div class="zone-name mdui-valign">{{
+            $t(`zone.${zoneToNameId[zoneId] || zoneId}`)
+          }}</div>
           <mdui-checkbox
             class="zone-checkbox"
             v-bind="zoneCheckbox[zoneId]"
@@ -48,10 +50,13 @@ import mduiDialogMixin from '@/mixins/mduiDialog';
 
 import _ from 'lodash';
 import { fullStageTable, sortStageCodes } from '@/store/stage.js';
+import { zoneToNameId } from '@/store/zone.js';
+import { zoneToRetro } from '@/data/zone.json';
 
 export default {
   mixins: [mduiDialogMixin],
   data: () => ({
+    zoneToNameId,
     color: {
       selectedColor: ['mdui-color-green-300', 'mdui-color-green-300'],
       notSelectedColor: [
@@ -93,15 +98,23 @@ export default {
         this.$parent.unopenedStages,
       );
       const eventCodeTableByServer = _.pickBy(
-        _.mapKeys(fullStageTable.event, ({ code }) => code),
+        _.mapKeys(fullStageTable.event[this.$root.server], ({ code }) => code),
         ({ zoneId }) => zoneId in this.$parent.eventInfo,
+      );
+      const retroCodeTableByServer = _.pickBy(
+        _.mapKeys(fullStageTable.retro[this.$root.server], ({ code }) => code),
+        ({ zoneId }) => zoneToRetro[zoneId] in this.$parent.retroInfo,
       );
       const codeTableByServer = {
         ...eventCodeTableByServer,
         ...normalCodeTableByServer,
+        ...retroCodeTableByServer,
       };
       return _.mapValues(
-        _.groupBy(Object.keys(codeTableByServer), code => codeTableByServer[code].zoneId),
+        _.groupBy(Object.keys(codeTableByServer), code => {
+          const { zoneId } = codeTableByServer[code];
+          return zoneToNameId[zoneId] || zoneId;
+        }),
         sortStageCodes,
       );
     },

@@ -14,6 +14,14 @@ module.exports = {
       ['vue/no-unused-components', 'no-console', 'no-unused-vars'].map(name => [name, DWPE]),
     ),
     curly: ['error', 'multi-line'],
+    'prefer-const': [
+      'error',
+      {
+        destructuring: 'all',
+        ignoreReadBeforeAssign: false,
+      },
+    ],
+    'vue/multi-word-component-names': 'off',
   },
   overrides: [
     {

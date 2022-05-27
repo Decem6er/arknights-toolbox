@@ -1,10 +1,9 @@
 import Mdui from 'mdui';
 import _ from 'lodash';
-import uuid62 from './uuid62';
 
 const { ajax } = Mdui.JQ;
 
-const JSON_STORAGE_BASE_URL = 'https://jsonstorage.net';
+const JSON_STORAGE_BASE_URL = 'https://json.extendsclass.com/bin';
 
 const promisedAjax = options =>
   new Promise((resolve, reject) => {
@@ -47,29 +46,32 @@ export default {
       headers: { apikey: apikey || 'helloworld' },
     });
   },
-  createJson: obj =>
+  createJson: (obj, apiKey) =>
     promisedAjax({
       method: 'POST',
-      url: `${JSON_STORAGE_BASE_URL}/api/items`,
+      url: JSON_STORAGE_BASE_URL,
       processData: false,
       data: JSON.stringify(obj),
       dataType: 'json',
       contentType: 'application/json',
-    }).then(({ uri }) => uuid62.encode(_.last(uri.split('/')))),
-  getJson: code =>
+      headers: { 'api-key': apiKey || 'noaccount' },
+    }).then(({ id }) => id),
+  getJson: async (code, apiKey) =>
     promisedAjax({
       method: 'GET',
-      url: `${JSON_STORAGE_BASE_URL}/api/items/${uuid62.decode(code)}`,
+      url: `${JSON_STORAGE_BASE_URL}/${code}`,
       dataType: 'json',
       contentType: 'application/json',
+      headers: { 'api-key': apiKey || 'noaccount' },
     }),
-  updateJson: (code, obj) =>
+  updateJson: async (code, obj, apiKey) =>
     promisedAjax({
       method: 'PUT',
-      url: `${JSON_STORAGE_BASE_URL}/api/items/${uuid62.decode(code)}`,
+      url: `${JSON_STORAGE_BASE_URL}/${code}`,
       processData: false,
       data: JSON.stringify(obj),
       dataType: 'json',
       contentType: 'application/json',
+      headers: { 'api-key': apiKey || 'noaccount' },
     }),
 };

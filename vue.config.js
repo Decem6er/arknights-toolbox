@@ -4,9 +4,10 @@ const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const ClosurePlugin = require('./plugins/ClosurePlugin');
 const PreventVercelBuildingPlugin = require('./plugins/PreventVercelBuildingPlugin');
 
-if (process.env.HOME === '/vercel') process.env.VUE_APP_VERCEL = '1';
-process.env.VUE_APP_DIST_VERSION = `${require('dateformat')(new Date(), 'yyyymmddHHMMss')}${
-  process.env.VUE_APP_SHA ? `-${process.env.VUE_APP_SHA.substr(0, 8)}` : ''
+const { env } = process;
+if (!env.VUE_APP_SHA) env.VUE_APP_SHA = env.VERCEL_GIT_COMMIT_SHA || env.CF_PAGES_COMMIT_SHA || '';
+env.VUE_APP_DIST_VERSION = `${require('dateformat')(new Date(), 'yyyymmddHHMMss')}${
+  env.VUE_APP_SHA ? `-${env.VUE_APP_SHA.substr(0, 8)}` : ''
 }`;
 
 const runtimeCachingRule = (reg, handler = 'CacheFirst') => ({
@@ -29,7 +30,7 @@ const config = {
   configureWebpack: {
     plugins: [
       new BundleAnalyzerPlugin({
-        analyzerMode: process.env.NODE_ENV === 'production' ? 'static' : 'server',
+        analyzerMode: env.NODE_ENV === 'production' ? 'static' : 'server',
         openAnalyzer: false,
         reportFilename: 'bundle-report.html',
       }),
@@ -79,33 +80,27 @@ const config = {
       'vue-i18n': 'VueI18n',
       '@johmun/vue-tags-input': 'vueTagsInput',
       'javascript-lp-solver': 'solver',
-      md5: 'MD5',
-      comlink: 'Comlink',
-      'js-base64': 'Base64',
+      'js-md5': 'md5',
       'vue-gtag': 'VueGtag',
     },
     resolve: { alias: {} },
   },
   chainWebpack: config => {
     config.plugins.delete('preload').delete('prefetch');
-    // config.module
-    //   .rule('i18n')
-    //   .resourceQuery(/blockType=i18n/)
-    //   .type('javascript/auto')
-    //   .use('i18n')
-    //   .loader('@intlify/vue-i18n-loader');
   },
   pwa: {
     workboxPluginMode: 'GenerateSW',
     workboxOptions: {
-      skipWaiting: true,
+      importWorkboxFrom: 'local',
+      skipWaiting: false,
       exclude: [
         'manifest.json',
         /\.(map|zip|txt)$/,
-        /^assets\/img\/(avatar|material|item|other)\//,
+        /^assets\/img\/(avatar|item|other)\//,
+        /^assets\/icons\/shortcut-/,
       ],
       runtimeCaching: [
-        runtimeCachingRule(/assets\/img\/(avatar|material|item)\//),
+        runtimeCachingRule(/assets\/img\/(avatar|item|other)\//),
         runtimeCachingRuleByURL(
           new URL('https://avatars.githubusercontent.com'),
           'StaleWhileRevalidate',
@@ -126,34 +121,97 @@ const config = {
     manifestOptions: {
       name: '明日方舟工具箱',
       short_name: '方舟工具箱',
-      lang: 'zh-Hans',
+      lang: 'zh',
+      start_url: '/',
       background_color: '#212121',
       description:
-        '明日方舟工具箱，全服支持，宗旨是简洁美观且对移动设备友好。目前功能包括：公开招募计算、精英材料计算、刷图规划、干员升级计算、基建技能筛选、仓库材料导入。',
+        '明日方舟工具箱，全服支持，宗旨是简洁美观且对移动设备友好。目前功能包括：公开招募计算、精英材料计算、刷图规划、仓库材料识别导入、干员升级计算、基建技能筛选。',
+      categories: ['tools'],
+      shortcuts: [
+        {
+          name: '公开招募计算',
+          short_name: '公开招募',
+          url: '/#/hr',
+          icons: [
+            {
+              src: 'assets/icons/shortcut-hr-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any',
+            },
+          ],
+        },
+        {
+          name: '精英材料计算',
+          short_name: '精英材料',
+          url: '/#/material',
+          icons: [
+            {
+              src: 'assets/icons/shortcut-material-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any',
+            },
+          ],
+        },
+        {
+          name: '干员升级计算',
+          short_name: '干员升级',
+          url: '/#/level',
+          icons: [
+            {
+              src: 'assets/icons/shortcut-level-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any',
+            },
+          ],
+        },
+        {
+          name: '基建技能筛选',
+          short_name: '基建技能',
+          url: '/#/riic',
+          icons: [
+            {
+              src: 'assets/icons/shortcut-riic-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any',
+            },
+          ],
+        },
+      ],
       icons: [
         {
-          src: './assets/icons/texas-icon-192x192-v2.png',
+          src: 'assets/icons/texas-icon-192x192-v2.png',
           sizes: '192x192',
           type: 'image/png',
         },
         {
-          src: './assets/icons/texas-icon-192x192-maskable-v2.png',
+          src: 'assets/icons/texas-icon-192x192-maskable-v2.png',
           sizes: '192x192',
           type: 'image/png',
           purpose: 'maskable',
         },
         {
-          src: './assets/icons/texas-icon-512x512-v2.png',
+          src: 'assets/icons/texas-icon-512x512-v2.png',
           sizes: '512x512',
           type: 'image/png',
         },
         {
-          src: './assets/icons/texas-icon-512x512-maskable-v2.png',
+          src: 'assets/icons/texas-icon-512x512-maskable-v2.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable',
         },
       ],
+      screenshots: Array(6)
+        .fill()
+        .map((v, i) => ({
+          src: `https://cdn.jsdelivr.net/gh/arkntools/static-files/arknights-toolbox/screenshots/${i}.png`,
+          sizes: '1380x845',
+          type: 'image/png',
+        })),
     },
   },
   pluginOptions: {
@@ -169,21 +227,23 @@ const config = {
   },
 };
 
-if (process.env.DR_DEV) {
-  config.configureWebpack.resolve.alias['@arkntools/depot-recognition'] = resolve(
-    process.env.DR_DEV,
-  );
+if (env.DR_DEV) {
+  config.configureWebpack.resolve.alias['@arkntools/depot-recognition'] = resolve(env.DR_DEV);
 }
 
 const runtimeCachingURLs = [
   'https://i.loli.net',
+  'https://fonts.loli.net',
+  'https://gstatic.loli.net',
   'https://fonts.googleapis.cnpmjs.org',
   'https://fonts.gstatic.cnpmjs.org',
   'https://cdn.jsdelivr.net',
+  'https://code.bdstatic.com',
+  'https://unpkg.com',
 ].map(url => new URL(url));
 
-if (process.env.NODE_ENV === 'production') {
-  const { USE_CDN, VUE_APP_CDN } = process.env;
+if (env.NODE_ENV === 'production') {
+  const { USE_CDN, VUE_APP_CDN } = env;
   if (USE_CDN === 'true') {
     if (!VUE_APP_CDN) throw new Error('VUE_APP_CDN env is not set');
     config.publicPath = VUE_APP_CDN;
@@ -197,7 +257,7 @@ if (process.env.NODE_ENV === 'production') {
       runtimeCachingURLs.push(CDN_URL);
     }
   }
-  if (process.env.HOME !== '/vercel') {
+  if (env.GITHUB_ACTIONS) {
     config.configureWebpack.plugins.push(new PreventVercelBuildingPlugin());
   }
   config.configureWebpack.plugins.push(new ClosurePlugin());

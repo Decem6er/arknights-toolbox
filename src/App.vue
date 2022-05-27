@@ -98,7 +98,7 @@
     <!-- /应用栏 -->
     <!-- 抽屉 -->
     <div id="app-drawer" class="mdui-drawer mdui-drawer-close mdui-hidden-sm-up">
-      <div class="app-drawer-logo">Arknights<br />Toolbox</div>
+      <div class="app-drawer-logo" @touchend="enterDebugMode">Arknights<br />Toolbox</div>
       <div class="mdui-list mdui-p-t-0">
         <router-link
           v-for="{ path, name } in routes.filter(({ name }) => name in routeMeta)"
@@ -120,6 +120,12 @@
       </div>
     </div>
     <!-- /抽屉 -->
+    <alert-bar
+      v-if="this.$root.serverTW"
+      flag="twDataOutOfDate"
+      :style="{ transform: $root.smallScreen ? 'translateY(-16px)' : 'translateY(-32px)' }"
+      >台服資料因解包長時間未更新，已經過時，建議切換使用美/日/韓這類與台服進度相近的伺服器資料。需要注意其他伺服器的進度可能超前，使用時請結合實際情況進行判斷和調整。</alert-bar
+    >
     <div id="main-container" class="mdui-container">
       <transition name="fade" mode="out-in" @after-leave="scrollTop" @enter="$mutation">
         <keep-alive>
@@ -143,15 +149,30 @@
       />
       <img v-else class="bg-img no-sl" src="@/assets/img/amiya-dark.gif" />
     </template>
+    <paste-capturer />
   </div>
 </template>
 
 <script>
-import { meta as routeMeta } from './router';
+import PasteCapturer from '@/components/PasteCapturer.vue';
+import { router, meta as routeMeta } from './router';
+import { VConsoleLoaded, loadVConsole } from '@/utils/vConsole';
+import MduiTab from '@/utils/MduiTab';
+import AlertBar from './components/AlertBar.vue';
+
+const mduiTab = new MduiTab('#app-tab');
+
+router.afterEach(to => {
+  mduiTab.show(router.options.routes.findIndex(({ path }) => path === to.path));
+});
 
 export default {
   name: 'app',
-  data: () => ({ routeMeta }),
+  components: { PasteCapturer, AlertBar },
+  data: () => ({
+    routeMeta,
+    debugClickCount: 0,
+  }),
   computed: {
     routes() {
       return this.$router.options.routes;
@@ -161,23 +182,28 @@ export default {
     scrollTop() {
       window.scroll(0, 0);
     },
-    updateTab() {
-      this.$nextTick(() => {
-        this.$$('#app-tab .mdui-tab-indicator').remove();
-        new this.$Tab('#app-tab');
-      });
+    enterDebugMode() {
+      if (VConsoleLoaded()) return;
+      this.debugClickCount++;
+      if (this.debugClickCount === 10) loadVConsole();
     },
   },
   mounted() {
-    this.$$(window).one('mduiTabInit', () => new this.$Tab('#app-tab'));
-    window.addEventListener('popstate', this.updateTab);
-    window.addEventListener('orientationchange', this.updateTab);
-    this.$root.$on('tab-need-updated', this.updateTab);
+    mduiTab.init();
   },
 };
 </script>
 
 <style lang="scss">
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: url(./assets/fonts/roboto-mono-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F,
+    U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --mdui-color-amber-400: #ffca28;
   --mdui-color-light-blue-700: #0288d1;
@@ -215,15 +241,12 @@ export default {
   animation-fill-mode: both;
 }
 
-html {
+html,
+body {
   height: 100%;
+  overflow: hidden;
 }
 body {
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   &::-webkit-scrollbar,
   &::-webkit-scrollbar-track-piece {
@@ -242,6 +265,24 @@ body {
   &::-webkit-scrollbar-thumb:active {
     background: rgba(0, 0, 0, 0.3);
   }
+  *:not(input) {
+    user-select: none;
+  }
+}
+a {
+  -webkit-user-drag: none;
+}
+
+#wrapper {
+  height: 100%;
+  overflow: hidden auto;
+}
+#container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box;
 }
 
 .mdui-textfield {
@@ -322,11 +363,20 @@ body {
 .no-sl {
   user-select: none;
 }
+.can-sl {
+  &,
+  & * {
+    user-select: text;
+  }
+}
 .no-border {
   border: none !important;
 }
 .no-bs {
   box-shadow: none !important;
+}
+.inline-flex {
+  display: inline-flex;
 }
 .flex {
   display: flex;
@@ -335,6 +385,9 @@ body {
   }
   &-equally {
     flex: 1;
+  }
+  &-grow {
+    flex-grow: 1;
   }
   &-dr {
     flex-direction: row !important;
@@ -350,10 +403,13 @@ body {
   display: inline-block;
 }
 .opacity-0 {
-  opacity: 0;
+  opacity: 0 !important;
 }
 .opacity-5 {
-  opacity: 0.5;
+  opacity: 0.5 !important;
+}
+.lh-0 {
+  line-height: 0 !important;
 }
 .lh-1 {
   line-height: 1 !important;
@@ -372,6 +428,9 @@ body {
 }
 .va-middle {
   vertical-align: middle;
+}
+.va-bottom {
+  vertical-align: bottom;
 }
 .font-mono {
   font-family: 'Roboto Mono', Roboto, Noto, Helvetica, Arial, sans-serif;
@@ -464,6 +523,9 @@ body {
   h5.h-ul {
     border-bottom: $bb;
     padding-bottom: 5px;
+  }
+  hr {
+    height: 0.8em;
   }
 }
 .mdui-valign-bottom {
@@ -756,7 +818,7 @@ body.mdui-theme-layout-dark {
 
 // iPhone 异形屏
 @supports (height: env(safe-area-inset-bottom)) {
-  body {
+  #container {
     padding-left: calc(env(safe-area-inset-left) * 0.62);
     padding-right: calc(env(safe-area-inset-right) * 0.62);
   }
@@ -772,5 +834,13 @@ body.mdui-theme-layout-dark {
       padding-bottom: env(safe-area-inset-bottom);
     }
   }
+  .mdui-drawer {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.vc-switch {
+  left: 0 !important;
+  right: unset !important;
 }
 </style>

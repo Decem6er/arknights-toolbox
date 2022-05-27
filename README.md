@@ -4,9 +4,7 @@
 
 # Arkntools - Arknights Toolbox
 
-[![GitHub License](https://img.shields.io/github/license/arkntools/arknights-toolbox?style=flat-square)](https://github.com/arkntools/arknights-toolbox/blob/master/LICENSE)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/arkntools/arknights-toolbox/Deploy%20to%20Pages?style=flat-square)](https://github.com/arkntools/arknights-toolbox/actions/workflows/pages-deploy.yml)
-[![PWA Support](https://img.shields.io/badge/PWA-support-blue?style=flat-square)](https://developer.mozilla.org/docs/Web/Progressive_web_apps)
+[![GitHub License](https://img.shields.io/github/license/arkntools/arknights-toolbox?style=flat-square)](https://github.com/arkntools/arknights-toolbox/blob/master/LICENSE) [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/arkntools/arknights-toolbox/Deploy%20to%20Pages?style=flat-square)](https://github.com/arkntools/arknights-toolbox/actions/workflows/pages-deploy.yml) [![PWA Support](https://img.shields.io/badge/PWA-support-blue?style=flat-square)](https://developer.mozilla.org/docs/Web/Progressive_web_apps)
 
 </div>
 
@@ -23,6 +21,8 @@
 ## 使用
 
 目前成品部署在 [arkn.lolicon.app](https://arkn.lolicon.app)
+
+备用地址 [arknbak.lolicon.app](https://arknbak.lolicon.app)
 
 ## 主要功能
 
@@ -42,11 +42,11 @@
 - [企鹅物流数据统计](https://penguin-stats.io/)（掉落数据）
 - [材料获取最优策略](https://bbs.nga.cn/read.php?tid=17507710)（思路）
 - [OCR Space](https://ocr.space/)（OCR）
-- [JsonStorage](https://jsonstorage.net/)（数据同步）
+- [ExtendsClass](https://extendsclass.com/json-storage.html)（数据同步）
 - Wiki
   - CN & TW - [PRTS Wiki](http://prts.wiki/)
   - US - [GamePress](https://gamepress.gg/arknights/)
-  - JP - [GamerClub](https://wiki.gamerclub.jp/anwiki/)
+  - JP - [Wikiru](https://arknights.wikiru.jp/)
   - KR - [Namu Wiki](https://namu.wiki/)
 
 [组织](https://github.com/arkntools)头像及本项目[应用图标](public/assets/icons)由[冬夏](https://www.pixiv.net/users/8745555)绘制并授权使用
@@ -57,7 +57,7 @@
 
 If you know about English / Japanese / Korean, and are willing to help us to translate some interface text, or improving translation, you can fork this project and then create a pull request after your translation is complete. I will show all contributors in the home page.
 
-All locale files are in `src/locales/{lang}/_.json`. You can refer to the translated file for translating.
+All locale files are in `src/locales/{lang}/_.json`. You can refer to locale files of other languages for translation.
 
 ----------
 

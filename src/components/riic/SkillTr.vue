@@ -35,7 +35,7 @@
       }}</span>
     </td>
     <td
-      class="mdui-typo"
+      class="mdui-typo can-sl"
       :class="$root.smallScreen ? 'no-wrap' : false"
       v-html="richText2HTML($t(`building.buff.description.${buff.description[skill.id]}`))"
     ></td>
@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import { characterTable } from '@/store/character.js';
+import { characterTable } from '@/store/character';
 import { buff } from '@/data/building.json';
 import { RIIC_TAG_BTN_COLOR } from '@/utils/constant';
 import { richText2HTML } from './richText2HTML';
@@ -77,7 +77,7 @@ export default {
       this.$confirm(
         this.$t('riic.viewOnWiki'),
         this.$t(`character.${name}`),
-        () => window.open(this.$root.getWikiHref(char), '_blank'),
+        () => this.$root.openWikiHref(char),
         () => {},
         {
           confirmText: this.$t('common.yes'),

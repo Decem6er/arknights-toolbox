@@ -7,7 +7,7 @@
     },
     "konayuki_kh": {
       "name": "Konayuki KH",
-      "avatar": "https://i.loli.net/2020/03/23/uh3sgZty5dQ7rJK.png",
+      "avatar": "assets/img/other/kh.png",
       "url": null,
       "translation": ["jpn"]
     },
@@ -40,6 +40,21 @@
       "name": "GuiBo",
       "avatar": "https://avatars.githubusercontent.com/u/71174033?s=32",
       "work": ["art"]
+    },
+    "ebina4yaka": {
+      "name": "shunsuke takii",
+      "avatar": "https://avatars.githubusercontent.com/u/55776479?s=32",
+      "translation": ["jpn"]
+    },
+    "Gennadiyev": {
+      "name": "Kunologist",
+      "avatar": "https://avatars.githubusercontent.com/u/19852747?s=32",
+      "translation": ["eng"]
+    },
+    "lynnguo666-personal": {
+      "name": "lynnguo",
+      "avatar": "https://avatars.githubusercontent.com/u/39556167?s=32",
+      "translation": ["cht"]
     }
   },
   "developers": ["Tsuk1ko", "viewweiwu", "doir", "GuiBo0"],
@@ -50,6 +65,9 @@
     "doir",
     "ButterCatz",
     "c88tm",
-    "AndyChen2005121"
+    "AndyChen2005121",
+    "ebina4yaka",
+    "Gennadiyev",
+    "lynnguo666-personal"
   ]
 }

@@ -8,7 +8,7 @@
         <div
           class="result-scrollable"
           @dragover.prevent
-          @drop.prevent="e => useImg(e.dataTransfer.files[0])"
+          @drop.prevent="e => handleUseFiles(e.dataTransfer.files)"
           @contextmenu.prevent
           :style="{ 'overflow-x': isDrProcessing ? 'hidden' : '' }"
           ref="resultScrollable"
@@ -42,7 +42,6 @@
                       :t="materialTable[sim.name].rare"
                       :img="sim.name"
                       width=""
-                      style="height: 100%"
                     />
                     <div class="result-sim-num no-pe no-sl">{{ num.value }}</div>
                   </div>
@@ -54,23 +53,26 @@
           <div v-show="$_.size(drData)" class="debug-checkbox-wrapper">
             <mdui-checkbox class="debug-checkbox" v-model="debug">Debug</mdui-checkbox>
           </div>
-          <div v-show="isDrProcessing" class="result-progress">
+          <div v-show="isDrProcessing && !drError" class="result-progress">
             <mdui-spinner class="mdui-m-r-1" :colorful="true" /><div
               class="mdui-typo-body-1 mdui-text-color-black-text"
               >{{ $t(`depot.recognitionSteps.${drStep}`) }}</div
             >
           </div>
+          <div v-show="drError" class="result-progress">
+            <div class="mdui-typo-body-1 mdui-text-color-red mdui-p-x-2">{{ drError }}</div>
+          </div>
         </div>
       </div>
       <!-- 导入 -->
-      <div v-if="drData" class="mdui-row mdui-m-t-2">
+      <div v-if="drData || drError" class="mdui-row mdui-m-t-2">
         <div class="mdui-col-xs-6">
           <label
             class="mdui-btn mdui-btn-raised mdui-ripple mdui-btn-block"
             for="img-select"
             v-theme-class="['mdui-color-purple', 'mdui-color-purple-a100 mdui-ripple-black']"
             @dragover.prevent
-            @drop.prevent="e => useImg(e.dataTransfer.files[0])"
+            @drop.prevent="e => handleUseFiles(e.dataTransfer.files)"
             >{{ $t('depot.result.selectImage') }}</label
           >
         </div>
@@ -78,7 +80,7 @@
           <button
             class="mdui-btn mdui-btn-raised mdui-ripple mdui-btn-block"
             v-theme-class="$root.color.pinkBtn"
-            :disabled="!drData.length"
+            :disabled="!(drData && drData.length)"
             @click="importItems"
             >{{ $t('common.import') }}</button
           >
@@ -91,7 +93,7 @@
       class="image-select pointer mdui-valign mdui-text-center mdui-p-a-4 no-sl"
       for="img-select"
       @dragover.prevent
-      @drop.prevent="e => useImg(e.dataTransfer.files[0])"
+      @drop.prevent="e => handleUseFiles(e.dataTransfer.files)"
     >
       <div
         class="mdui-typo-display-1-opacity mdui-hidden-xs"
@@ -108,8 +110,12 @@
       id="img-select"
       accept="image/jpeg,image/png"
       style="display: none"
-      ref="image"
-      @change="useImg($refs.image.files[0])"
+      @change="
+        ({ target }) => {
+          handleUseFiles(target.files);
+          target.value = '';
+        }
+      "
     />
     <!-- 调试 -->
     <div v-if="debug && drData" id="debug" class="mdui-m-t-4 no-sl">
@@ -141,13 +147,13 @@ text: {{ num.text }}</pre
 import ArknItem from '@/components/ArknItem';
 import _ from 'lodash';
 import { PNG1P } from '@/utils/constant';
-import * as clipboard from '@/utils/clipboard';
 import NamespacedLocalStorage from '@/utils/NamespacedLocalStorage';
+import { filterImgFiles } from '@/utils/file';
 import {
   toSimpleTrustedResult,
   isTrustedResult,
   MAX_SHOW_DIFF,
-} from '@arkntools/depot-recognition/es/tools';
+} from '@arkntools/depot-recognition/tools';
 import { getRecognizer } from '@/workers/depotRecognition';
 import { proxy as comlinkProxy } from 'comlink';
 
@@ -169,7 +175,8 @@ export default {
     },
     drData: null,
     drSelect: [],
-    drStep: '',
+    drStep: -1,
+    drError: '',
     drDebug: [],
     debug: false,
   }),
@@ -204,10 +211,23 @@ export default {
     updateStep(step = -1) {
       this.drStep = step;
     },
+    /**
+     * @param {ArrayLike<File>} files
+     */
+    handleUseFiles(files) {
+      if (!this.$route.path.startsWith('/depot')) return;
+      const imgFiles = filterImgFiles(files, ['image/jpeg', 'image/png']);
+      if (!imgFiles.length) return;
+      this.useImg(imgFiles[0]);
+    },
+    /**
+     * @param {File} file
+     */
     async useImg(file) {
-      if (!file || !['image/jpeg', 'image/png'].includes(file.type)) return;
       if (this.drImg.src) URL.revokeObjectURL(this.drImg.src);
+      const forceInit = !!this.drError;
       this.updateStep(0);
+      this.drError = '';
       this.drData = null;
       this.drSelect = [];
       this.drDebug = [];
@@ -221,15 +241,22 @@ export default {
         event_category: 'depot',
         event_label: 'recognition',
       });
-      const dr = await getRecognizer();
-      await dr.setDebug(this.debug);
-      const { data, debug } = await dr.recognize(this.drImg.src, comlinkProxy(this.updateStep));
-      // eslint-disable-next-line
-      console.log('Recognition', toSimpleTrustedResult(data), data);
-      this.drData = _.cloneDeep(data);
-      this.drSelect = data.map(isTrustedResult);
-      this.drDebug = debug;
-      setTimeout(this.updateStep);
+      try {
+        const dr = await getRecognizer(forceInit);
+        await dr.setDebug(this.debug);
+        const { data, debug } = await dr.recognize(this.drImg.src, comlinkProxy(this.updateStep));
+        // eslint-disable-next-line no-console
+        console.log('[dr-result]', toSimpleTrustedResult(data), data);
+        this.drData = _.cloneDeep(data);
+        this.drSelect = data.map(isTrustedResult);
+        this.drDebug = debug;
+        setTimeout(this.updateStep);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('[dr-init]', e);
+        this.drError = String(e);
+        this.updateStep();
+      }
     },
     updateImgInfo() {
       const img = new Image();
@@ -274,25 +301,6 @@ export default {
       }
       this.$snackbar(this.$t('depot.result.imported'));
     },
-    // 粘贴图片
-    detectPasteAndUseImg(e) {
-      if (!(this.$route.path.startsWith('/depot') && clipboard.isPastePressed(e))) return;
-      return clipboard.readImg().then(this.useImg);
-    },
-    // 读取剪贴板图片
-    async readClipboardImg() {
-      if (!(await this.$requestClipboardPermission('clipboard-read'))) return;
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        const imgTypes = item.types.filter(type => type.startsWith('image/'));
-        if (imgTypes.length > 0) {
-          const blob = await item.getType(imgTypes[0]);
-          return new File([blob], `depot-${Date.now()}.${_.last(imgTypes[0].split('/'))}`, {
-            type: imgTypes[0],
-          });
-        }
-      }
-    },
     onScrollResult(e) {
       const $div = this.$refs.resultScrollable;
       if (!(e.deltaY && $div.scrollWidth > $div.clientWidth)) return;
@@ -301,11 +309,11 @@ export default {
     },
   },
   created() {
-    this.$$(window).on('keydown', this.detectPasteAndUseImg);
+    this.$root.$on('paste-files', this.handleUseFiles);
     this.debug = !!this.$route.query.debug;
   },
   beforeDestroy() {
-    this.$$(window).off('keydown', this.detectPasteAndUseImg);
+    this.$root.$off('paste-files', this.handleUseFiles);
   },
 };
 </script>
@@ -371,6 +379,7 @@ export default {
       }
       &-img {
         display: inline-block;
+        height: 100%;
         filter: brightness(1);
       }
       &-warn {

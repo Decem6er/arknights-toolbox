@@ -1,5 +1,91 @@
 [
   {
+    "time": "2022-05-04",
+    "changes": [
+      "【精英材料计算】刷图规划对开放了 LS-6 和 CE-6 的服务器使用 LS-6 和 CE-6 的数据进行理智换算",
+      "【精英材料计算】刷图规划的“需求狗粮”功能增加阈值设置，若开启“需求狗粮”后理智消耗过高可尝试减小阈值",
+      "【精英材料计算】标准和磨难关卡的素材掉率可以认为是一致的，因此将标准和磨难关卡的掉落数据进行合并以获得更大的样本量",
+      "【干员升级计算】对开放了 LS-6 和 CE-6 的服务器使用 LS-6 和 CE-6 的数据进行计算"
+    ]
+  },
+  {
+    "time": "2022-05-03",
+    "changes": ["【精英材料计算】修复未显示“愚人号”活动相关掉落和关卡的问题"]
+  },
+  {
+    "time": "2022-04-28",
+    "changes": [
+      "日服干员 wiki 变更为 <a href=\"https://arknights.wikiru.jp/\" target=\"_blank\">wikiru</a>"
+    ]
+  },
+  {
+    "time": "2022-04-18",
+    "changes": ["【精英材料计算】在预设输入框输入时支持按下 Esc 键清空输入框"]
+  },
+  {
+    "time": "2022-04-16",
+    "changes": ["【精英材料计算】云同步支持设置 ExtendsClass API Key"]
+  },
+  {
+    "time": "2022-04-08",
+    "changes": [
+      "【精英材料计算】因 <a href=\"https://www.jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a> 需要注册帐号才能使用，带来不便，云同步储存更换至 <a href=\"https://extendsclass.com/json-storage.html\" target=\"_blank\">ExtendsClass</a>"
+    ]
+  },
+  {
+    "time": "2022-04-04",
+    "changes": ["【公开招募计算】修复“查看保底词条组合”功能会遗漏部分词条组合的一个严重逻辑问题"]
+  },
+  {
+    "time": "2021-12-19",
+    "changes": [
+      "【公开招募计算】新增本地 OCR 能力（实验性）",
+      "【精英材料计算】修复云端数据同步无法使用的问题"
+    ]
+  },
+  {
+    "time": "2021-11-29",
+    "changes": ["【仓库材料导入】提升平板截图识别准确率"]
+  },
+  {
+    "time": "2021-11-04",
+    "changes": ["【干员升级计算】简化结果显示"]
+  },
+  {
+    "time": "2021-11-03",
+    "changes": ["【公开招募计算】调整“支援机械”至“资质”分类"]
+  },
+  {
+    "time": "2021-11-02",
+    "changes": ["修复 iOS 15 无法复制到剪贴板的问题"]
+  },
+  {
+    "time": "2021-08-05",
+    "changes": ["【精英材料计算】预设支持模组"]
+  },
+  {
+    "time": "2021-07-31",
+    "changes": ["【公开招募计算】支持对“查看保底词条组合”进行筛选", "【干员升级计算】支持多个计算"]
+  },
+  {
+    "time": "2021-07-17",
+    "changes": [
+      "【精英材料计算】刷图规划加入插曲、别传关卡",
+      "【精英材料计算】关卡详情和规划结果现在会在插曲、别传、活动关卡最右侧显示对应的活动名称"
+    ]
+  },
+  {
+    "time": "2021-06-20",
+    "changes": ["自动判断浏览器首选语言"]
+  },
+  {
+    "time": "2021-05-21",
+    "changes": [
+      "【公开招募计算】OCR 前会对图片进行压缩",
+      "统一对干员称号进行拉丁文转换处理，便于搜索熊熊们"
+    ]
+  },
+  {
     "time": "2021-05-06",
     "changes": ["【基建技能筛选】修复一些筛选错误问题，新增“控制中枢-生产力”分类"]
   },
@@ -33,7 +119,7 @@
   {
     "time": "2021-02-24",
     "changes": [
-      "【精英材料计算】<a href=\"https://jsonbox.io/\" target=\"_blank\">jsonbox.io</a> 将要停止服务，因此云同步储存更换回 <a href=\"https://jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a>"
+      "【精英材料计算】<a href=\"https://jsonbox.io/\" target=\"_blank\">jsonbox.io</a> 将要停止服务，因此云同步储存更换回 <a href=\"https://www.jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a>"
     ]
   },
   {
@@ -51,7 +137,7 @@
   {
     "time": "2021-01-16",
     "changes": [
-      "【精英材料计算】因 <a href=\"https://jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a> 持续宕机，云同步储存更换至 <a href=\"https://jsonbox.io/\" target=\"_blank\">jsonbox.io</a>"
+      "【精英材料计算】因 <a href=\"https://www.jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a> 持续宕机，云同步储存更换至 <a href=\"https://jsonbox.io/\" target=\"_blank\">jsonbox.io</a>"
     ]
   },
   {
@@ -172,7 +258,7 @@
   {
     "time": "2020-04-08",
     "changes": [
-      "<a href=\"https://twitter.com/lance_ramoth/status/1245515531710390272\" target=\"_blank\">myjson 已停止服务</a>，现替换为 <a href=\"https://jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a>"
+      "<a href=\"https://twitter.com/lance_ramoth/status/1245515531710390272\" target=\"_blank\">myjson 已停止服务</a>，现替换为 <a href=\"https://www.jsonstorage.net/\" target=\"_blank\">jsonstorage.net</a>"
     ]
   },
   {

@@ -8,6 +8,8 @@ import darkmodejs from '@yzfe/darkmodejs';
 import { locales, langMigration } from './store/lang';
 import NamespacedLocalStorage from './utils/NamespacedLocalStorage';
 import pickClone from '@/utils/pickClone';
+import { loadVConsole } from '@/utils/vConsole';
+import { encodeURIComponentEUCJP } from '@/utils/coder';
 
 import defineVueProperty from './plugins/defineVueProperty';
 import './plugins/globalComponents';
@@ -15,6 +17,18 @@ import './plugins/mdui';
 import './plugins/lodash';
 import './plugins/theme';
 import './plugins/gtag';
+import './plugins/formatter';
+
+import VueObserveVisibility from 'vue-observe-visibility';
+import smoothscroll from 'smoothscroll-polyfill';
+
+Vue.use(VueObserveVisibility);
+smoothscroll.polyfill();
+
+(() => {
+  const url = new URL(location.href);
+  if (url.searchParams.get('vconsole')) loadVConsole();
+})();
 
 if (process.env.NODE_ENV !== 'production') {
   Vue.config.devtools = true;
@@ -51,7 +65,6 @@ new Vue({
     systemDarkTheme: false,
     server: locales[0].short,
     locales,
-    materialListRendering: true,
     themeEnum: {
       light: 0,
       dark: 1,
@@ -68,7 +81,6 @@ new Vue({
     },
     locale(lang) {
       this.updateTitle();
-      this.$emit('tab-need-updated');
       nls.setItem('lang', lang);
     },
     server(server) {
@@ -123,6 +135,9 @@ new Vue({
     serverCN() {
       return this.server === 'cn';
     },
+    serverTW() {
+      return this.server === 'tw';
+    },
     serverNotCN() {
       return !this.serverCN;
     },
@@ -174,15 +189,6 @@ new Vue({
     materialImage(name) {
       return `${this.staticBaseURL}assets/img/item/${name}.png`;
     },
-    humanReadableSize(size) {
-      const unit = ['B', 'KB', 'MB'];
-      let lv = 0;
-      while (size > 1024 && lv < 2) {
-        size /= 1024;
-        lv++;
-      }
-      return `${size.toFixed(2)} ${unit[lv]}`;
-    },
     installPWA() {
       if (this.deferredPrompt) {
         this.deferredPrompt.prompt();
@@ -200,6 +206,9 @@ new Vue({
     },
     isImplementedMaterial(name) {
       return name in this.i18nServerMessages.material;
+    },
+    isImplementedUniequip(id) {
+      return id in (this.i18nServerMessages.uniequip || {});
     },
     updateTitle() {
       document.title = this.$t('app.title');
@@ -220,20 +229,29 @@ new Vue({
     localeNot(locales = []) {
       return !locales.includes(this.locale);
     },
-    getWikiHref({ name, appellation }) {
+    getLocalCharacterName(name, locale) {
+      return this.$i18n.messages[locale || this.locale].character[name];
+    },
+    async getWikiHref({ name, appellation }) {
       if (!(name && appellation)) return '';
-      const getLocaleName = (locale = this.locale) => this.$i18n.messages[locale].character[name];
       switch (this.locale) {
         case 'cn':
         case 'tw':
-          return `http://prts.wiki/w/${getLocaleName('cn')}`;
+          return `http://prts.wiki/w/${this.getLocalCharacterName(name, 'cn')}`;
         case 'jp':
-          return `https://wiki.gamerclub.jp/anwiki/index.php?title=${getLocaleName()}`;
+          // eslint-disable-next-line no-case-declarations
+          const jpName = this.getLocalCharacterName(name);
+          return `https://arknights.wikiru.jp/index.php?${await encodeURIComponentEUCJP(
+            jpName === 'W' ? `${jpName}(プレイアブル)` : jpName,
+          )}`;
         case 'kr':
-          return `https://namu.wiki/w/${getLocaleName()}(명일방주)`;
+          return `https://namu.wiki/w/${this.getLocalCharacterName(name)}(명일방주)`;
         default:
           return `https://gamepress.gg/arknights/operator/${appellation.toLowerCase()}`;
       }
+    },
+    async openWikiHref(char) {
+      window.open(await this.getWikiHref(char), '_blank');
     },
     pureName(name) {
       return name.toLowerCase?.().replace(/ /g, '');
@@ -267,9 +285,13 @@ new Vue({
         width: '',
       });
     },
+    updateScreenWidth() {
+      if (this.screenWidth !== window.innerWidth) {
+        this.screenWidth = window.innerWidth;
+      }
+    },
   },
   created() {
-    // $('html').attr('l', this.locale);
     this.updatedarkTheme();
     this.updateTitle();
 
@@ -286,11 +308,11 @@ new Vue({
 
     (obj => obj && (this.setting = pickClone(this.setting, obj)))(nls.getItem('setting'));
 
-    const lastPage = localStorage.getItem('lastPage');
+    const lastPage = window.localStorage?.getItem('lastPage');
     const initPath = location.hash.substr(1) || '/';
     if (this.setting.rememberLastPage && lastPage && initPath === '/' && lastPage !== '/') {
       router.replace(lastPage);
-    } else if (initPath !== '/') localStorage.setItem('lastPage', initPath);
+    } else if (initPath !== '/') window.localStorage?.setItem('lastPage', initPath);
 
     const lang = nls.getItem('lang');
     if (lang) this.locale = langMigration[lang] || lang;
@@ -316,7 +338,7 @@ new Vue({
       document.addEventListener(
         'touchend',
         event => {
-          const now = new Date().getTime();
+          const now = Date.now();
           if (now - lastTouchEnd <= 300) {
             event.preventDefault();
           }
@@ -327,12 +349,10 @@ new Vue({
     })();
   },
   mounted() {
-    this.screenWidth = window.innerWidth;
-    window.onresize = () => {
-      this.screenWidth = window.innerWidth;
-    };
+    this.updateScreenWidth();
+    window.addEventListener('resize', this.updateScreenWidth);
+    window.addEventListener('orientationchange', this.updateScreenWidth);
     $('#footer').removeClass('mdui-hidden');
-    // if (this.isMobile()) $('body').attr('mobile', true);
   },
   i18n,
 }).$mount('#app');

@@ -50,6 +50,7 @@
                   <tag-button
                     v-for="tag in tagList[tagType]"
                     :key="`${tagType}-${tag}`"
+                    :class="{ 'opacity-5': setting.showGuarantees && !guaranteesTagSet.has(tag) }"
                     v-model="selected.tag[tag]"
                     :notSelectedColor="color.notSelected"
                     :selectedColor="color.selected"
@@ -103,7 +104,7 @@
                     for="image-select"
                     :mdui-tooltip="`{content:'${$t('hr.ocr.tip')}',position:'top'}`"
                     @dragover.prevent
-                    @drop.prevent="e => (tagImg = e.dataTransfer.files[0])"
+                    @drop.prevent="e => handleFilesOCR(e.dataTransfer.files)"
                     >{{ $t('hr.ocr.button') }} ({{ $root.server.toUpperCase() }})</label
                   >
                   <input
@@ -112,7 +113,12 @@
                     accept="image/*"
                     style="display: none"
                     ref="image"
-                    @change="tagImg = $refs.image.files[0]"
+                    @change="
+                      ({ target }) => {
+                        handleFilesOCR(target.files);
+                        target.value = '';
+                      }
+                    "
                   />
                   <button
                     class="mdui-btn mdui-ripple mdui-btn-dense tag-btn btn-group-right no-grow"
@@ -120,17 +126,11 @@
                       'mdui-color-purple',
                       'mdui-color-purple-a100 mdui-ripple-black',
                     ]"
-                    @click="$refs.apikeyDialog.open()"
-                    ><i class="mdui-icon material-icons">settings</i></button
-                  >
-                  <button
-                    class="mdui-btn mdui-ripple mdui-btn-dense tag-btn"
-                    v-theme-class="['mdui-color-blue-600', 'mdui-color-blue-200 mdui-ripple-black']"
                     @click="
-                      reset();
-                      $nextTick(() => (showGuarantees = true));
+                      closeDrawer();
+                      $refs.apikeyDialog.open();
                     "
-                    >{{ $t('hr.showBaoDi') }}</button
+                    ><i class="mdui-icon material-icons">settings</i></button
                   >
                 </td>
               </tr>
@@ -172,7 +172,7 @@
         <div v-if="!$root.smallScreen" class="comb-large">
           <table class="mdui-table mdui-table-hoverable comb-table hide-last-tr-border">
             <thead>
-              <tr :class="{ 'tbody-is-empty': !combinations.length }">
+              <tr :class="{ 'tbody-is-empty': !displayCombinations.length }">
                 <th width="1" class="mdui-table-col-numeric">#</th>
                 <th width="20%">{{ $t('hr.table.header.tag') }}</th>
                 <th width="1" class="mdui-text-center">{{ $t('hr.table.header.minRarity') }}</th>
@@ -180,7 +180,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(comb, i) in combinations" :key="`comb-${i}`">
+              <tr v-for="(comb, i) in displayCombinations" :key="`comb-${i}`">
                 <td>{{ i + 1 }}</td>
                 <td>
                   <button
@@ -229,7 +229,7 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="(comb, i) in combinations">
+              <template v-for="(comb, i) in displayCombinations">
                 <tr :key="`comb-${i}-tr1`">
                   <td class="mdui-p-b-0 no-border" colspan="2">
                     <button
@@ -269,7 +269,7 @@
                   </td>
                 </tr>
               </template>
-              <tr v-if="combinations.length == 0">
+              <tr v-if="displayCombinations.length == 0">
                 <td colspan="2" class="no-border">{{ $t('hr.table.selectTip') }}</td>
               </tr>
             </tbody>
@@ -307,8 +307,7 @@
         <a
           class="mdui-btn mdui-ripple"
           v-theme-class="['mdui-color-teal', 'mdui-color-teal-300 mdui-ripple-black']"
-          :href="$root.getWikiHref(detail)"
-          target="_blank"
+          @click="$root.openWikiHref(detail)"
           >{{ $t('common.viewOnWiki') }}</a
         >
         <button
@@ -319,10 +318,19 @@
         >
       </div>
     </mdui-dialog>
-    <!-- ocr.space apikey -->
-    <mdui-dialog id="detail" class="mdui-typo" ref="apikeyDialog">
-      <div class="mdui-dialog-title">OCR {{ $t('common.setting') }}</div>
+    <!-- OCR setting -->
+    <mdui-dialog id="ocr-setting" class="mdui-typo" ref="apikeyDialog">
+      <div class="mdui-dialog-title" style="padding-bottom: 12px"
+        >OCR {{ $t('common.setting') }}</div
+      >
       <div class="mdui-dialog-content mdui-p-b-0">
+        <div class="mdui-p-t-1">
+          <mdui-switch v-model="setting.useLocalOCR">{{
+            $t('hr.ocr.setting.useLocalOCR')
+          }}</mdui-switch>
+        </div>
+        <div class="mdui-m-t-1">{{ $t('hr.ocr.setting.localOCRTip') }}</div>
+        <hr />
         <div class="mdui-textfield mdui-p-t-0">
           <label class="mdui-textfield-label">OCR Space API Key</label>
           <input class="mdui-textfield-input" type="text" v-model.trim="setting.ocrspaceApikey" />
@@ -362,20 +370,19 @@
 import 'lodash.combinations';
 import _ from 'lodash';
 import Ajax from '@/utils/ajax';
-import * as clipboard from '@/utils/clipboard';
 import NamespacedLocalStorage from '@/utils/NamespacedLocalStorage';
 import pickClone from '@/utils/pickClone';
+import resizeImg from '@/utils/resizeImage';
+import { filterImgFiles } from '@/utils/file';
+import { localTagOCR } from '@/workers/tagOCR';
 
-import characterData from '@/store/character.js';
-import localeTagCN from '@/locales/cn/tag.json';
+import * as characterData from '@/store/character';
+import { enumTagMap } from '@/store/tag';
 
 import { HR_TAG_BTN_COLOR } from '@/utils/constant';
 
 const nls = new NamespacedLocalStorage('hr');
-
-const enumTagZh = _.mapValues(_.invert(localeTagCN), parseInt);
-Object.freeze(enumTagZh);
-
+const enumTagZh = enumTagMap.cn;
 const MAX_TAG_NUM = 5;
 
 export default {
@@ -397,30 +404,29 @@ export default {
       hide12: false,
       showPrivate: false,
       showNotImplemented: false,
+      showGuarantees: false,
       ocrspaceApikey: '',
+      useLocalOCR: false,
     },
-    settingList: ['showAvatar', 'hide12', 'showPrivate'],
+    settingList: ['showAvatar', 'hide12', 'showPrivate', 'showGuarantees'],
     avgCharTag: 0,
     tagList: {
       locations: [enumTagZh.近战位, enumTagZh.远程位],
-      credentials: [enumTagZh.新手, enumTagZh.资深干员, enumTagZh.高级资深干员],
+      credentials: [enumTagZh.高级资深干员, enumTagZh.资深干员, enumTagZh.新手, enumTagZh.支援机械],
       professions: Array(8)
         .fill(null)
         .map((v, i) => i + 1),
-      abilities: new Set(),
-      sort: ['credentials', 'locations', 'professions', 'abilities'],
+      abilities: [],
+      sort: ['credentials', 'professions', 'locations', 'abilities'],
     },
     color: HR_TAG_BTN_COLOR,
     detail: false,
-    drawer: false,
-    tagImg: false,
+    drawer: null,
     tagsCache: [],
-    showGuarantees: false,
   }),
   watch: {
     'selected.tag': {
       handler() {
-        this.showGuarantees = false;
         let tags = _.flatMap(this.selected.tag, (selected, tag) => (selected ? [tag] : []));
         if (tags.length > MAX_TAG_NUM) {
           new this.$alert(this.$tc('hr.tagOverLimit', MAX_TAG_NUM), null, null, {
@@ -441,13 +447,6 @@ export default {
       },
       deep: true,
     },
-    tagImg(file) {
-      this.OCR(file);
-      this.$gtag.event('hr_ocr', {
-        event_category: 'hr',
-        event_label: 'ocr',
-      });
-    },
   },
   computed: {
     allStar() {
@@ -455,13 +454,10 @@ export default {
     },
     // 计算词条组合
     combinations() {
-      if (this.showGuarantees) return this.guarantees;
-      const tags = _.flatMap(this.selected.tag, (selected, tag) => (selected ? [tag] : []));
+      const tags = Object.keys(_.pickBy(this.selected.tag)).map(Number);
       const rares = _.flatMap(this.selected.star, (selected, star) => (selected ? [star + 1] : []));
-      const combs = _.flatMap([1, 2, 3], v => _.combinations(tags, v)).map(comb =>
-        comb.map(tag => parseInt(tag)),
-      );
-      let result = [];
+      const combs = _.flatMap([1, 2, 3], v => _.combinations(tags, v));
+      const result = [];
       for (const comb of combs) {
         const need = [];
         for (const tag of comb) need.push(this.tags[tag]);
@@ -503,6 +499,14 @@ export default {
       );
       return result;
     },
+    displayCombinations() {
+      if (this.setting.showGuarantees) {
+        const selectedTags = Object.keys(_.pickBy(this.selected.tag)).map(Number);
+        if (!selectedTags.length) return this.guarantees;
+        return this.guarantees.filter(({ tags }) => selectedTags.every(tag => tags.includes(tag)));
+      }
+      return this.combinations;
+    },
     // 保底组合计算
     guarantees() {
       const guarantees = [];
@@ -521,7 +525,8 @@ export default {
         if (min < 4) continue;
         if (
           guarantees.some(
-            ({ tags, min: _min }) => _min === min && tags.every(tag => comb.includes(tag)),
+            ({ tags: _tags, chars: _chars }) =>
+              _.difference(_chars, chars).length === 0 && _tags.every(tag => comb.includes(tag)),
           )
         ) {
           continue;
@@ -539,18 +544,26 @@ export default {
         return 0;
       });
     },
+    guaranteesTagSet() {
+      return new Set(_.flatMap(this.guarantees, 'tags'));
+    },
     // 公招干员
     pubs() {
       return this.hr.filter(this.isPub);
     },
-    // 词条名->ID
+    /**
+     * 词条名->ID
+     * @returns {Record<string, number>}
+     */
     enumTag() {
-      return _.mapValues(_.invert(this.$root.i18nServerMessages.tag), parseInt);
+      return enumTagMap[this.$root.server];
     },
   },
   methods: {
+    closeDrawer() {
+      this.drawer?.close();
+    },
     reset() {
-      this.showGuarantees = false;
       this.selected.star = _.fill(Array(this.selected.star.length), true);
       for (const tag in this.selected.tag) {
         this.selected.tag[tag] = false;
@@ -563,7 +576,75 @@ export default {
     isTagsSelected(tags) {
       return _.castArray(tags).some(k => this.selected.tag[enumTagZh[k]]);
     },
+    /**
+     * @param {ArrayLike<File>} files
+     */
+    async handleFilesOCR(files) {
+      if (!this.$route.path.startsWith('/hr')) return;
+      const imgFiles = filterImgFiles(files);
+      if (!imgFiles.length) return;
+      this.closeDrawer();
+      this.OCR(imgFiles[0]);
+      this.$gtag.event('hr_ocr', {
+        event_category: 'hr',
+        event_label: this.setting.useLocalOCR ? 'ocr_local' : 'ocr',
+      });
+    },
+    /**
+     * @param {File} file
+     */
     async OCR(file) {
+      const words = this.setting.useLocalOCR
+        ? await this.localOCR(file)
+        : await this.ocrspaceOCR(file);
+      if (!words) return;
+      // eslint-disable-next-line
+      console.log('OCR', JSON.stringify(words));
+      this.reset();
+      const tags = words.filter(tag => tag in this.enumTag);
+      tags.slice(0, MAX_TAG_NUM).forEach(tag => {
+        this.selected.tag[this.enumTag[tag]] = true;
+      });
+      if (tags.length < MAX_TAG_NUM) {
+        this.$snackbar({
+          message: this.$tc('hr.ocr.tagNotEnough', MAX_TAG_NUM),
+          timeout: 0,
+        });
+      } else if (tags.length > MAX_TAG_NUM) {
+        this.$snackbar({
+          message: this.$tc('hr.ocr.tagOverLimit', MAX_TAG_NUM),
+          timeout: 0,
+        });
+      }
+    },
+    /**
+     * @param {File} file
+     * @returns {Promise<string[] | void>}
+     */
+    async localOCR(file) {
+      try {
+        return await localTagOCR(this.$root.server, file);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Local OCR error', e);
+        this.$snackbar({
+          message: `${this.$t('hr.ocr.error')}${String(e)}`,
+          timeout: 0,
+          buttonText: this.$t('common.retry'),
+          onButtonClick: () => this.OCR(file),
+        });
+      }
+    },
+    /**
+     * @param {File} file
+     * @returns {Promise<string[] | void>}
+     */
+    async ocrspaceOCR(file) {
+      const processingSnackbar = this.$snackbar({
+        message: this.$t('hr.ocr.processing'),
+        closeOnOutsideClick: false,
+        timeout: 0,
+      });
       const languageEnum = {
         cn: 'chs',
         tw: 'cht',
@@ -571,32 +652,38 @@ export default {
         jp: 'jpn',
         kr: 'kor',
       };
-      const processingSnackbar = this.$snackbar(this.$t('hr.ocr.processing'));
       // 调用 ocr.space
       const result = await Ajax.ocrspace(
         {
-          file,
+          file: await resizeImg(file, {
+            quality: 0.9,
+            maxWidth: 1920,
+            maxHeight: 1080,
+          }),
+          filetype: 'jpg',
           language: languageEnum[this.$root.server],
         },
         this.setting.ocrspaceApikey,
       ).catch(e => ({
         IsErroredOnProcessing: true,
         ErrorMessage: String(e),
+        Error: e,
       }));
       processingSnackbar.close();
       if (result.IsErroredOnProcessing) {
+        // eslint-disable-next-line no-console
+        console.error('ocr.space OCR error', result);
         this.$snackbar({
           message: `${this.$t('hr.ocr.error')}${_.castArray(result.ErrorMessage)
             .map(msg => (msg.endsWith('.') ? msg : `${msg}.`))
             .join(' ')}`,
           timeout: 0,
           buttonText: this.$t('common.retry'),
-          onButtonClick: () => this.ocr(file),
+          onButtonClick: () => this.OCR(file),
         });
         return;
       }
       // 处理识别结果
-      this.reset();
       const errorList = {
         '·': '',
         千员: '干员',
@@ -604,33 +691,13 @@ export default {
         枳械: '机械',
         冫口了: '治疗',
       };
-      const words = _.reduce(
-        errorList,
-        (cur, correct, error) => cur.replace(new RegExp(error, 'g'), correct),
-        result.ParsedResults[0].ParsedText.trim(),
-      ).split(/[\r\n]+/);
-      // eslint-disable-next-line
-      console.log('OCR', JSON.stringify(words));
-      let tagCount = 0;
-      for (const word of words) {
-        if (word.length && word in this.enumTag) {
-          tagCount++;
-          if (tagCount > MAX_TAG_NUM) {
-            this.$snackbar({
-              message: this.$tc('hr.ocr.tagOverLimit', MAX_TAG_NUM),
-              timeout: 0,
-            });
-            return;
-          }
-          this.selected.tag[this.enumTag[word]] = true;
-        }
-      }
-      if (tagCount !== MAX_TAG_NUM) {
-        this.$snackbar({
-          message: this.$tc('hr.ocr.tagNotEnough', MAX_TAG_NUM),
-          timeout: 0,
-        });
-      }
+      return _.filter(
+        _.reduce(
+          errorList,
+          (cur, correct, error) => cur.replace(new RegExp(error, 'g'), correct),
+          result.ParsedResults[0].ParsedText.trim(),
+        ).split(/\s*[\r\n]+\s*/),
+      );
     },
     // 是否是公招干员
     isPub({ recruitment }) {
@@ -640,22 +707,15 @@ export default {
     isPubOnly({ recruitment }) {
       return recruitment[this.$root.server] === 2;
     },
-    // 读取剪贴板图片进行 OCR
-    async detectPasteAndOCR(e) {
-      if (!(this.$route.path.startsWith('/hr') && clipboard.isPastePressed(e))) return;
-      const img = await clipboard.readImg();
-      if (img) this.tagImg = img;
-    },
   },
   created() {
+    const abilities = new Set();
     let charTagSum = 0;
 
     this.hr.forEach(char => {
       const { tags, profession, position, star } = char;
       // 确定特性标签
-      for (const tag of tags) {
-        if (tag !== enumTagZh.新手) this.tagList.abilities.add(tag);
-      }
+      tags.forEach(tag => abilities.add(tag));
       // 资质
       switch (star) {
         case 5:
@@ -677,20 +737,18 @@ export default {
     const tagCount = _.size(this.tags);
     this.avgCharTag = charTagSum / tagCount;
 
-    this.tagList.abilities = Array.from(this.tagList.abilities).sort();
-    // .sort((a, b) => {
-    //   if (a.length == b.length) return a.localeCompare(b);
-    //   return a.length - b.length;
-    // });
+    abilities.delete(enumTagZh.新手);
+    abilities.delete(enumTagZh.支援机械);
+    this.tagList.abilities = Array.from(abilities).sort();
 
     this.selected.tag = _.mapValues(this.tags, () => false);
 
     (obj => obj && (this.setting = pickClone(this.setting, obj)))(nls.getItem('setting'));
 
-    this.$$(window).on('keydown', this.detectPasteAndOCR);
+    this.$root.$on('paste-files', this.handleFilesOCR);
   },
   beforeDestroy() {
-    this.$$(window).off('keydown', this.detectPasteAndOCR);
+    this.$root.$off('paste-files', this.handleFilesOCR);
   },
 };
 </script>

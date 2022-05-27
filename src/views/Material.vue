@@ -78,7 +78,7 @@
                     @click="props.performAdd(props.item)"
                     class="mdui-list-item mdui-p-y-0 mdui-p-x-1"
                   >
-                    <div class="mdui-list-item-avatar"
+                    <div class="mdui-list-item-avatar lh-0"
                       ><avatar
                         class="no-pe"
                         :key="`head-${props.item.text}`"
@@ -198,10 +198,10 @@
                   >{{ $t('cultivate.panel.button.forceUpdate') }}</button
                 >
                 <button
-                  v-show="$_.size(highlight)"
+                  v-show="$_.size(highlightCost)"
                   class="mdui-btn mdui-ripple mdui-btn-dense tag-btn"
                   v-theme-class="$root.color.pinkBtn"
-                  @click="highlightCost = {}"
+                  @click="clearHighlight"
                   >{{ $t('cultivate.panel.button.clearHighlight') }}</button
                 >
               </td>
@@ -260,7 +260,7 @@
       <!-- /说明 -->
     </div>
     <!-- 材料 -->
-    <div id="material-main" class="mdui-row" :class="{ rendering: $root.materialListRendering }">
+    <div id="material-main" class="mdui-row" :class="{ rendering: materialListRendering }">
       <!-- 简洁模式 -->
       <div id="material-simple" class="mdui-col-xs-12 mdui-m-t-4" v-if="setting.simpleMode">
         <transition-group
@@ -547,11 +547,11 @@
             >
           </div>
           <!-- 普通技能选框 -->
-          <div class="skill-normal" v-if="sp.skills.normal.length >= 2">
-            <mdui-checkbox v-model="pSetting.skills.normal[0]" class="skill-cb">{{
+          <div class="skill-normal cb-with-num-select" v-if="sp.skills.normal.length >= 2">
+            <mdui-checkbox v-model="pSetting.skills.normal[0]" class="mdui-p-r-2">{{
               $t('common.skill')
             }}</mdui-checkbox>
-            <div class="inline-block">
+            <div class="num-select inline-block">
               <mdui-select-num
                 v-model="pSetting.skills.normal[1]"
                 :options="$_.range(1, sp.skills.normal.length + 1)"
@@ -575,15 +575,15 @@
           <!-- 精英技能选框 -->
           <template v-if="sp.skills.elite.length > 0">
             <div
-              class="skill-elite"
+              class="skill-elite cb-with-num-select"
               v-for="(skill, i) in sp.skills.elite"
               :key="`se-${skill.name}`"
               v-show="isSkillReleased(skill)"
             >
-              <mdui-checkbox v-model="pSetting.skills.elite[i][0]" class="skill-cb">{{
+              <mdui-checkbox v-model="pSetting.skills.elite[i][0]" class="mdui-p-r-2">{{
                 $t(`skill.${skill.name}`)
               }}</mdui-checkbox>
-              <div class="inline-block">
+              <div class="num-select inline-block">
                 <mdui-select-num
                   v-model="pSetting.skills.elite[i][1]"
                   :options="
@@ -615,6 +615,22 @@
               </div>
             </div>
           </template>
+          <!-- 模组选框 -->
+          <div class="uniequip-cb-list" v-if="sp.uniequip.length > 0">
+            <div class="uniequip" v-for="{ id } in sp.uniequip" :key="`uniequip-${id}`">
+              <mdui-checkbox
+                v-if="$root.isImplementedUniequip(id) || pSetting.uniequip[id]"
+                v-model="pSetting.uniequip[id]"
+                @change="
+                  val =>
+                    !$root.isImplementedUniequip(id) &&
+                    !val &&
+                    $nextTick($refs.presetDialog.handleUpdate)
+                "
+                >{{ $t(`uniequip.${id}`) }}</mdui-checkbox
+              >
+            </div>
+          </div>
         </div>
       </template>
       <div class="mdui-dialog-actions">
@@ -622,11 +638,10 @@
           v-if="sp"
           class="mdui-btn mdui-ripple"
           v-theme-class="$root.color.dialogTransparentBtn"
-          :href="
-            $root.getWikiHref({ name: selectedPresetName, ...characterTable[selectedPresetName] })
-          "
-          target="_blank"
           style="float: left"
+          @click="
+            $root.openWikiHref({ name: selectedPresetName, ...characterTable[selectedPresetName] })
+          "
           >{{ $t('common.viewOnWiki') }}</a
         >
         <button
@@ -681,18 +696,51 @@
               $t('cultivate.planner.otherMaterial')
             }}</span>
           </p>
+          <div
+            v-if="plannerShowMiniSetting"
+            id="planner-mini-setting"
+            class="planner-setting-switches mdui-dialog-content mdui-m-t-2 flex flex-wrap"
+          >
+            <mdui-switch v-if="isPenguinDataSupportedServer" v-model="setting.planIncludeEvent">{{
+              $t('cultivate.setting.planIncludeEvent')
+            }}</mdui-switch>
+            <div class="flex flex-grow flex-wrap">
+              <mdui-switch v-model="setting.planCardExpFirst">{{
+                $t('cultivate.setting.planCardExpFirst')
+              }}</mdui-switch>
+              <div class="mdui-valign flex-equally" style="min-width: 170px; max-width: 300px">
+                <span class="no-wrap mdui-m-r-1">{{ $t('common.threshold') }}</span>
+                <span class="no-wrap mdui-m-r-1">0</span>
+                <mdui-slider
+                  v-model="setting.planCardExpFirstThreshold"
+                  :disabled="!setting.planCardExpFirst"
+                  :step="0.01"
+                  :min="0"
+                  :max="1"
+                />
+                <span class="no-wrap mdui-m-l-1">1</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="mdui-dialog-content">
           <div class="stage" v-for="stage in plan.stages" :key="stage.code">
-            <h5 class="h-ul">
-              <span v-theme-class="['mdui-text-color-blue-900', 'mdui-text-color-blue-200']">{{
-                stage.code
-              }}</span>
-              × <span v-theme-class="$root.color.pinkText">{{ stage.times }}</span
-              >&nbsp;&nbsp;(<span
-                v-theme-class="['mdui-text-color-yellow-900', 'mdui-text-color-yellow-200']"
-                >{{ stage.cost }}</span
-              >)
+            <h5 class="stage-title h-ul">
+              <span class="stage-code"
+                ><span v-theme-class="['mdui-text-color-blue-900', 'mdui-text-color-blue-200']">{{
+                  stage.code
+                }}</span>
+                × <span v-theme-class="$root.color.pinkText">{{ stage.times }}</span
+                >&nbsp;&nbsp;(<span
+                  v-theme-class="['mdui-text-color-yellow-900', 'mdui-text-color-yellow-200']"
+                  >{{ stage.cost }}</span
+                >)</span
+              >
+              <small
+                v-if="stage.code in stageFromNameIdTable"
+                class="from-name mdui-text-color-theme-secondary mdui-text-truncate"
+                >{{ $t(`zone.${stageFromNameIdTable[stage.code]}`) }}</small
+              >
             </h5>
             <div class="num-item-list">
               <arkn-num-item
@@ -765,6 +813,18 @@
       <div class="mdui-dialog-actions">
         <button
           class="mdui-btn mdui-ripple"
+          v-theme-class="
+            plannerShowMiniSetting ? $root.color.pinkBtn : $root.color.dialogTransparentBtn
+          "
+          style="float: left"
+          @click="
+            plannerShowMiniSetting = !plannerShowMiniSetting;
+            $nextTick(() => $refs.plannerDialog.handleUpdate());
+          "
+          ><i class="mdui-icon material-icons">settings</i></button
+        >
+        <button
+          class="mdui-btn mdui-ripple"
           v-theme-class="$root.color.dialogTransparentBtn"
           mdui-dialog-cancel
           >{{ $t('common.close') }}</button
@@ -804,7 +864,7 @@
             madeofTooltips[dropFocus]
           }}</div>
           <div
-            v-if="materialsCharMap[dropFocus] && materialsCharMap[dropFocus].length > 0"
+            v-if="materialsCharMap[dropFocus] && materialsCharMap[dropFocus].size > 0"
             class="mdui-text-color-theme-secondary text-10px"
             >{{ $t('cultivate.dropDetail.relatedOperators') }}：<span
               v-for="char in materialsCharMap[dropFocus]"
@@ -820,13 +880,19 @@
         </div>
         <div class="mdui-dialog-content mdui-p-b-0">
           <div class="stage" v-for="dropDetail in dropDetails" :key="`dd-${dropDetail.code}`">
-            <h5 class="h-ul">
-              {{ dropDetail.code }}&nbsp;&nbsp;<code
+            <h5 class="stage-title h-ul">
+              <span class="stage-code">{{ dropDetail.code }}</span>
+              <code class="stage-expect-ap"
                 >{{
                   $_.round(dropInfo.expectAP[dropFocus][dropDetail.code], 1).toPrecision(3)
                 }}⚡</code
               >
               <!-- &nbsp;&nbsp;<code>${{ dropInfo.stageValue[dropDetail.code].toPrecision(4) }}</code> -->
+              <small
+                v-if="dropDetail.code in stageFromNameIdTable"
+                class="from-name mdui-text-color-theme-secondary mdui-text-truncate"
+                >{{ $t(`zone.${stageFromNameIdTable[dropDetail.code]}`) }}</small
+              >
             </h5>
             <div class="num-item-list">
               <arkn-num-item
@@ -890,20 +956,23 @@
             $t('cultivate.panel.sync.autoSyncUpload')
           }}</mdui-switch>
         </div>
-        <table class="thin-table mdui-m-b-1" style="width: 100%">
+        <table id="sync-options" class="thin-table mdui-m-b-2" style="width: 100%">
           <tbody>
             <tr>
               <td>
-                <div id="sync-code" class="mdui-textfield">
+                <div class="mdui-textfield">
+                  <label class="mdui-textfield-label">{{
+                    $t('cultivate.panel.sync.syncCode')
+                  }}</label>
                   <input
                     class="mdui-textfield-input"
                     type="text"
                     v-model.trim="syncCode"
-                    :placeholder="$t('cultivate.panel.sync.syncCode')"
+                    :disabled="dataSyncing"
                   />
                 </div>
               </td>
-              <td width="1">
+              <td class="va-bottom" width="1">
                 <button
                   class="mdui-btn mdui-ripple"
                   v-theme-class="['mdui-text-color-pink-accent', 'mdui-text-color-indigo-a100']"
@@ -914,11 +983,41 @@
                 >
               </td>
             </tr>
+            <tr>
+              <td class="mdui-p-t-1">
+                <div class="mdui-textfield">
+                  <label class="mdui-textfield-label">{{
+                    $t('cultivate.panel.sync.apiKey')
+                  }}</label>
+                  <input
+                    class="mdui-textfield-input"
+                    type="text"
+                    v-model.trim="syncApiKey"
+                    :disabled="dataSyncing"
+                    placeholder="noaccount"
+                  />
+                </div>
+              </td>
+              <td class="va-bottom" width="1">
+                <button
+                  class="mdui-btn mdui-ripple"
+                  v-theme-class="['mdui-text-color-pink-accent', 'mdui-text-color-indigo-a100']"
+                  style="min-width: unset"
+                  :disabled="!syncApiKey"
+                  @click="copySyncApiKey"
+                  >{{ $t('common.copy') }}</button
+                >
+              </td>
+            </tr>
           </tbody>
         </table>
         <p>{{ $t('cultivate.panel.sync.cloudSyncReadme') }}</p>
+        <p>{{ $t('cultivate.panel.sync.apiKeyReadme') }}</p>
         <p>{{ $t('cultivate.panel.sync.autoSyncUploadTip') }}</p>
-        <p>Powered by <a href="https://jsonstorage.net/" target="_blank">jsonstorage.net</a>.</p>
+        <p
+          >Powered by
+          <a href="https://extendsclass.com/json-storage.html" target="_blank">ExtendsClass</a>.</p
+        >
         <div class="mdui-divider mdui-m-y-2"></div>
         <h5 class="mdui-m-t-0">{{ $t('cultivate.panel.sync.localBackup') }}</h5>
         <div class="mdui-m-b-2">
@@ -986,22 +1085,28 @@ import pickClone from '@/utils/pickClone';
 import _ from 'lodash';
 import { Base64 } from 'js-base64';
 import Linprog from 'javascript-lp-solver';
-import md5 from 'md5';
+import md5 from 'js-md5';
 
 import elite from '@/data/cultivate.json';
 import unopenedStage from '@/data/unopenedStage.json';
+import drop from '@/data/drop.json';
+import { zoneToRetro } from '@/data/zone.json';
 
 import materialData from '@/store/material.js';
-import { characterTable } from '@/store/character.js';
-import { stageTable } from '@/store/stage.js';
+import { characterTable } from '@/store/character';
+import { unopenedStageSets } from '@/store/stage';
+import { getStageTable } from '@/store/stage.js';
 import { eventData, eventStageData } from '@/store/event.js';
+import { retroData, retroStageData } from '@/store/retro.js';
+import { zoneToNameId } from '@/store/zone.js';
 
 import { MATERIAL_TAG_BTN_COLOR } from '@/utils/constant';
 
 const nls = new NamespacedLocalStorage('material');
 const pdNls = new NamespacedLocalStorage('penguinData');
 
-const SYNC_CODE_VER = 4;
+const SYNC_CODE_VER = 6;
+const SYNC_API_KEY_VER = 1;
 
 const enumOccPer = {
   '-1': 'SYNT',
@@ -1014,7 +1119,15 @@ const enumOccPer = {
 Object.freeze(enumOccPer);
 
 const battleRecordIds = ['2001', '2002', '2003', '2004'];
-const dropTableOtherFields = ['cost', 'event', 'lmd', 'cardExp', ...battleRecordIds];
+const dropTableOtherFields = [
+  'zoneId',
+  'event',
+  'retro',
+  'cost',
+  'lmd',
+  'cardExp',
+  ...battleRecordIds,
+];
 
 const pSettingInit = {
   evolve: [false, false],
@@ -1024,6 +1137,7 @@ const pSettingInit = {
       .fill([false, 7, 10])
       .map(a => _.cloneDeep(a)),
   },
+  uniequip: {},
   state: 'add',
 };
 Object.freeze(pSettingInit);
@@ -1064,7 +1178,9 @@ export default {
       prioritizeNeedsWhenSynt: false,
       planIncludeEvent: true,
       planCardExpFirst: false,
+      planCardExpFirstThreshold: 1,
       [`syncCodeV${SYNC_CODE_VER}`]: '',
+      [`syncApiKeyV${SYNC_API_KEY_VER}`]: '',
       autoSyncUpload: false,
       planStageBlacklist: [],
       simpleModeOrderedByRareFirst: false,
@@ -1081,6 +1197,7 @@ export default {
     },
     plannerInited: false,
     plannerRequest: false,
+    plannerShowMiniSetting: false,
     apbDisabled: false,
     dropDetails: false,
     dropFocus: '',
@@ -1095,6 +1212,7 @@ export default {
     throttleAutoSyncUpload: null,
     ignoreInputsChange: false,
     highlightCost: {},
+    materialListRendering: true,
   }),
   watch: {
     setting: {
@@ -1153,6 +1271,14 @@ export default {
         this.setting[`syncCodeV${SYNC_CODE_VER}`] = val;
       },
     },
+    syncApiKey: {
+      get() {
+        return this.setting[`syncApiKeyV${SYNC_API_KEY_VER}`];
+      },
+      set(val) {
+        this.setting[`syncApiKeyV${SYNC_API_KEY_VER}`] = val;
+      },
+    },
     // TODO: 企鹅物流暂时不支持台服
     isPenguinDataSupportedServer() {
       return this.$root.server !== 'tw';
@@ -1162,11 +1288,29 @@ export default {
         this.$root.localeCN && this.setting.penguinUseCnServer ? 'cn' : 'io'
       }/PenguinStats/api/v2/result/matrix`;
     },
+    stageTable() {
+      return getStageTable(this.$root.server);
+    },
     eventInfo() {
       return eventData[this.$root.server];
     },
     eventStages() {
       return eventStageData[this.$root.server];
+    },
+    retroInfo() {
+      return retroData[this.$root.server];
+    },
+    retroStages() {
+      return retroStageData[this.$root.server];
+    },
+    stageFromNameIdTable() {
+      return _.transform(
+        this.dropTable,
+        (obj, { zoneId }, code) => {
+          if (zoneToNameId[zoneId]) obj[code] = zoneToNameId[zoneId];
+        },
+        {},
+      );
     },
     isPenguinDataExpired() {
       const now = Date.now();
@@ -1194,14 +1338,26 @@ export default {
       return _.omit(
         this.isPenguinDataSupportedServer && this.setting.planIncludeEvent
           ? this.dropTableByServer
-          : _.omitBy(this.dropTableByServer, o => o.event),
+          : _.omitBy(this.dropTableByServer, o => o.event || o.retro),
         this.setting.planStageBlacklist,
       );
     },
     dropListByServer() {
-      let table = _.mapValues(this.materialTable, ({ drop }) => _.omit(drop, this.unopenedStages));
+      let table = _.merge(
+        _.mapValues(this.materialTable, ({ drop }) => _.omit(drop, this.unopenedStages)),
+        ...Object.values(
+          _.pick(
+            _.mapKeys(drop.retro, (v, id) => zoneToRetro[id]),
+            Object.keys(this.retroInfo),
+          ),
+        ),
+      );
       if (this.isPenguinDataSupportedServer) {
-        table = _.merge({}, ..._.map(this.eventInfo, ({ drop }) => drop), table);
+        table = _.merge(
+          {},
+          ...Object.values(_.pick(drop.event, Object.keys(this.eventInfo))),
+          table,
+        );
       }
       return table;
     },
@@ -1479,8 +1635,29 @@ export default {
     },
     checkPSetting() {
       const ps = this.pSetting;
-      const check = [...ps.evolve, ps.skills.normal[0], ..._.map(ps.skills.elite, a => a[0])];
+      const check = [
+        ...ps.evolve,
+        ps.skills.normal[0],
+        ..._.map(ps.skills.elite, a => a[0]),
+        ...Object.values(ps.uniequip),
+      ];
       return _.sum(check) > 0;
+    },
+    planConvLmd() {
+      return unopenedStageSets[this.$root.server].has('CE-6')
+        ? {
+            'conv-lmd+': { lmd: 7500, cost: 30 },
+            'conv-lmd': { lmd: -7500, cost: -30 },
+          }
+        : {
+            'conv-lmd+': { lmd: 10000, cost: 36 },
+            'conv-lmd': { lmd: -10000, cost: -36 },
+          };
+    },
+    planConvCardExp() {
+      return unopenedStageSets[this.$root.server].has('LS-6')
+        ? { cardExp: -7400, lmd: -360, cost: -30 * this.setting.planCardExpFirstThreshold }
+        : { cardExp: -10000, lmd: -432, cost: -36 * this.setting.planCardExpFirstThreshold };
     },
     plan() {
       if (!this.plannerInited) return false;
@@ -1516,8 +1693,7 @@ export default {
               },
               { init: 1 },
             ),
-            'conv-lmd+': { lmd: 7500, cost: 30 },
-            'conv-lmd': { lmd: -7500, cost: -30 },
+            ...this.planConvLmd,
           },
           ...useVariables,
         ),
@@ -1526,7 +1702,7 @@ export default {
       // 需求狗粮
       if (this.setting.planCardExpFirst) {
         model.constraints.cardExp = { equal: 0 };
-        model.variables['conv-cardExp'] = { cardExp: -7400, lmd: -360, cost: -30 };
+        model.variables['conv-cardExp'] = this.planConvCardExp;
       }
 
       const result = Linprog.Solve(model);
@@ -1627,6 +1803,7 @@ export default {
           setting: {
             evolve,
             skills: { elite, normal },
+            uniequip,
           },
         }) =>
           _.merge(
@@ -1634,42 +1811,54 @@ export default {
               name,
               evolve,
               normal: _.map(_.range(1, 7), r => !!(normal[0] && r >= normal[1] && r < normal[2])),
+              uniequip,
             },
             _.transform(
               elite,
-              (map, e, i) => {
-                map[`elite_${i}`] = _.map(_.range(7, 10), r => !!(e[0] && r >= e[1] && r < e[2]));
+              (o, e, i) => {
+                o[`elite_${i}`] = _.map(_.range(7, 10), r => !!(e[0] && r >= e[1] && r < e[2]));
               },
               {},
             ),
           ),
       );
+      // TODO: 加上模组
       return _.transform(
         presets,
         (map, preset) => {
           const {
             evolve,
             skills: { elite, normal },
+            uniequip,
           } = this.elite[preset.name];
           const char = _.merge(
             { evolve, normal },
             _.transform(
               elite,
-              (map, e, i) => {
-                map[`elite_${i}`] = e.cost;
+              (o, e, i) => {
+                o[`elite_${i}`] = e.cost;
               },
               {},
             ),
           );
-          _.forIn(char, (v, k) => {
+          _.each(char, (v, k) => {
             const checks = preset[k];
             _.each(v, (cost, i) => {
               if (checks[i]) {
-                _.forIn(cost, (num, m) => {
-                  map[m] = _.uniq([...(map[m] || []), preset.name]);
+                _.each(cost, (num, m) => {
+                  if (!(m in map)) map[m] = new Set();
+                  map[m].add(preset.name);
                 });
               }
             });
+          });
+          uniequip.forEach(({ id, cost }) => {
+            if (preset.uniequip[id]) {
+              _.each(cost, (num, m) => {
+                if (!(m in map)) map[m] = new Set();
+                map[m].add(preset.name);
+              });
+            }
           });
         },
         {},
@@ -1704,6 +1893,7 @@ export default {
         if (inputs) this.compressedInputs = inputs;
         if (presets) this.selected.presets = presets;
         if (planStageBlacklist) this.setting.planStageBlacklist = planStageBlacklist;
+        this.updatePreset();
       },
     },
   },
@@ -1773,6 +1963,12 @@ export default {
         });
       }
     },
+    clearHighlight() {
+      this.highlightCost = {};
+    },
+    clearPresetInput() {
+      this.preset = '';
+    },
     addNeed(need) {
       _.each(need, (num, name) => {
         const orig = parseInt(this.inputs[name].need) || 0;
@@ -1781,10 +1977,11 @@ export default {
     },
     usePreset(presets) {
       if (presets) this.selected.presets = presets;
+      this.clearHighlight();
       this.reset('need', false, false);
       for (const {
         name,
-        setting: { evolve, skills },
+        setting: { evolve, skills, uniequip },
       } of this.selected.presets) {
         const current = this.elite[name];
 
@@ -1806,6 +2003,10 @@ export default {
             this.addNeed(current.skills.elite[i].cost[j]);
           }
         });
+
+        current.uniequip.forEach(({ id, cost }) => {
+          if (uniequip[id]) this.addNeed(cost);
+        });
       }
       // ensure
       nls.setItem('selected', this.selected);
@@ -1813,13 +2014,19 @@ export default {
     showPreset(obj, edit = false) {
       this.selectedPreset = obj;
       this.selectedPresetName = obj.tag.name;
-      if (edit) this.pSetting = _.cloneDeep(this.selected.presets[obj.index].setting);
+      let pSetting;
+      if (edit) pSetting = _.cloneDeep(this.selected.presets[obj.index].setting);
       else {
-        this.pSetting = _.cloneDeep(pSettingInit);
+        pSetting = _.cloneDeep(pSettingInit);
         _.each(this.elite[this.selectedPresetName]?.skills?.elite ?? [], ({ cost }, i) => {
-          this.pSetting.skills.elite[i][2] -= 3 - cost.length;
+          pSetting.skills.elite[i][2] -= 3 - cost.length;
         });
       }
+      if (!pSetting.uniequip) pSetting.uniequip = {};
+      _.each(this.elite[this.selectedPresetName]?.uniequip ?? [], ({ id }) => {
+        if (!(id in pSetting.uniequip)) pSetting.uniequip[id] = false;
+      });
+      this.pSetting = pSetting;
       this.$nextTick(() => {
         this.$refs.presetDialog.open();
         this.$mutation();
@@ -1851,10 +2058,15 @@ export default {
         for (let i = 0; i < lenGap; i++) {
           e1.push(_.cloneDeep(e2[0]));
         }
+        // ensure uniequip
+        if (!('uniequip' in p.setting)) this.$set(p.setting, 'uniequip', {});
       });
     },
     async copySyncCode() {
       if (await clipboard.setText(this.syncCode)) this.$snackbar(this.$t('common.copied'));
+    },
+    async copySyncApiKey() {
+      if (await clipboard.setText(this.syncApiKey)) this.$snackbar(this.$t('common.copied'));
     },
     saveData() {
       this.$refs.dataSyncDialog.close();
@@ -1905,28 +2117,28 @@ export default {
       };
       this.dataSyncing = true;
       if (this.syncCode) {
-        Ajax.updateJson(this.syncCode, obj)
+        Ajax.updateJson(this.syncCode, obj, this.syncApiKey)
           .then(() => {
             this.dataSyncing = false;
             if (!silence) this.$snackbar(this.$t('cultivate.snackbar.backupSucceeded'));
           })
-          .catch(xhr => {
+          .catch(e => {
             this.dataSyncing = false;
             this.$snackbar(
-              `${this.$t('cultivate.snackbar.backupFailed')} ${xhr.responseText || ''}`,
+              `${this.$t('cultivate.snackbar.backupFailed')} ${e.responseText || e.message || ''}`,
             );
           });
       } else {
-        Ajax.createJson(obj)
+        Ajax.createJson(obj, this.syncApiKey)
           .then(id => {
             this.dataSyncing = false;
             this.syncCode = id;
             this.$snackbar(this.$t('cultivate.snackbar.backupSucceeded'));
           })
-          .catch(xhr => {
+          .catch(e => {
             this.dataSyncing = false;
             this.$snackbar(
-              `${this.$t('cultivate.snackbar.backupFailed')} ${xhr.responseText || ''}`,
+              `${this.$t('cultivate.snackbar.backupFailed')} ${e.responseText || e.message || ''}`,
             );
           });
       }
@@ -1940,7 +2152,7 @@ export default {
     cloudRestoreData() {
       if (!this.syncCode) return;
       this.dataSyncing = true;
-      Ajax.getJson(this.syncCode)
+      Ajax.getJson(this.syncCode, this.syncApiKey)
         .then(({ md5: _md5, data }) => {
           if (!_md5 || !data || _md5 !== md5(JSON.stringify(data))) {
             this.dataSyncing = false;
@@ -1952,10 +2164,10 @@ export default {
           this.$snackbar(this.$t('cultivate.snackbar.restoreSucceeded'));
           this.dataSyncing = false;
         })
-        .catch(xhr => {
+        .catch(e => {
           this.dataSyncing = false;
           this.$snackbar(
-            `${this.$t('cultivate.snackbar.restoreFailed')} ${xhr.responseText || ''}`,
+            `${this.$t('cultivate.snackbar.restoreFailed')} ${e.responseText || e.message || ''}`,
           );
         });
       this.$gtag.event('material_cloud_restore', {
@@ -2049,22 +2261,36 @@ export default {
         2004: 2000,
       };
 
+      // 合并磨难与普通的掉落
+      const matrixTable = _.fromPairs(
+        this.penguinData.data.matrix.map(obj => [`${obj.stageId}_${obj.itemId}`, obj]),
+      );
+      for (const [key, obj] of Object.entries(matrixTable)) {
+        if (!key.startsWith('tough_')) continue;
+        const mainObj = matrixTable[key.replace('tough', 'main')];
+        if (!mainObj) continue;
+        mainObj.times += obj.times;
+        mainObj.quantity += obj.quantity;
+      }
+
       // 处理掉落信息
-      const validEvents = new Set(Object.keys(this.eventInfo).map(id => id.split('_')[0]));
       for (const { stageId: origStageId, itemId, quantity, times } of this.penguinData.data
         .matrix) {
         if (quantity === 0) continue;
         const stageId = origStageId.replace(/_rep$/, '');
-        if (!(stageId in stageTable && (itemId in this.materialConstraints || itemId in cardExp))) {
+        if (
+          !(stageId in this.stageTable && (itemId in this.materialConstraints || itemId in cardExp))
+        ) {
           continue;
         }
-        const { code, cost, event = false } = stageTable[stageId];
+        const { zoneId, code, cost, event = false, retro = false } = this.stageTable[stageId];
         if (event) {
-          const eventId = stageId.split('_')[0];
-          if (!validEvents.has(eventId) && !this.eventStages.has(stageId)) continue;
+          if (!(zoneId in this.eventInfo) || !this.eventStages.has(stageId)) continue;
+        } else if (retro) {
+          if (!(zoneToRetro[zoneId] in this.retroInfo) || !this.retroStages.has(stageId)) continue;
         }
         if (!(code in this.dropTable)) {
-          this.dropTable[code] = { cost, event, lmd: cost * 12, cardExp: 0 };
+          this.dropTable[code] = { zoneId, event, retro, cost, lmd: cost * 12, cardExp: 0 };
         }
         this.dropTable[code][itemId] = quantity / times;
         if (itemId in cardExp) {
@@ -2100,7 +2326,11 @@ export default {
     },
     resetPenguinData() {
       this.plannerInited = false;
-      pdNls.removeItem(this.penguinDataServer);
+      pdNls.setItem(this.penguinDataServer, {
+        data: null,
+        ...this.penguinData,
+        time: 0,
+      });
       return this.initPlanner();
     },
     async showDropDetail({ name }) {
@@ -2227,19 +2457,22 @@ export default {
     });
 
     const itemsImportStorageKey = 'depot.imports';
-    if (itemsImportStorageKey in localStorage) {
+    if (itemsImportStorageKey in (window.localStorage || {})) {
       this.ignoreInputsChange = false;
-      const items = safelyParseJSON(localStorage.getItem(itemsImportStorageKey));
-      localStorage.removeItem(itemsImportStorageKey);
+      const items = safelyParseJSON(window.localStorage.getItem(itemsImportStorageKey));
+      window.localStorage.removeItem(itemsImportStorageKey);
       this.importItems(items);
     }
   },
   mounted() {
-    if (this.$root.materialListRendering) {
+    if (this.materialListRendering) {
       setTimeout(() => {
-        this.$root.materialListRendering = false;
+        this.materialListRendering = false;
       }, 700);
     }
+    this.$refs.presetInput.$el?.querySelector('input')?.addEventListener('keydown', e => {
+      if (e.key === 'Escape') this.clearPresetInput();
+    });
   },
   beforeDestroy() {
     this.$root.importItemsListening = false;
@@ -2311,17 +2544,23 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
   .elite-cb-list {
     display: flex;
     .mdui-checkbox {
-      width: 130px;
+      width: 143px;
       flex-shrink: 1;
     }
   }
-  .skill-cb {
-    min-width: 130px;
+  .cb-with-num-select {
+    display: flex;
+    flex-wrap: wrap;
+    .num-select {
+      margin-left: auto;
+      flex-shrink: 0;
+    }
   }
   #preset.vue-tags-input {
     .ti-tag {
       margin-left: 0;
       margin-right: 4px;
+      height: 24px;
     }
     .ti-input {
       border: none;
@@ -2345,9 +2584,6 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
       font-size: 14px;
       &:placeholder-shown {
         text-overflow: ellipsis;
-      }
-      &-wrapper {
-        margin: 3px;
       }
     }
   }
@@ -2392,6 +2628,7 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
       &-name {
         line-height: 26px;
         margin-top: -2px;
+        margin-right: auto;
         &-wrap {
           padding-right: 16px;
           display: flex;
@@ -2538,6 +2775,20 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
     }
   }
   .stage {
+    &-title {
+      display: flex;
+      align-items: baseline;
+      .from-name {
+        margin-left: auto;
+      }
+    }
+    &-code {
+      white-space: nowrap;
+      margin-right: 4px;
+    }
+    &-expect-ap {
+      margin-right: 4px;
+    }
     &:first-child h5 {
       margin-top: 0;
     }
@@ -2561,7 +2812,9 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
     .tag-btn {
       padding: 0 14px;
     }
-    #sync-code {
+  }
+  #sync-options {
+    .mdui-textfield {
       display: block;
       padding: 0;
     }
@@ -2582,7 +2835,7 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
   .todo-list-transition {
     &-enter,
     &-leave-to {
-      opacity: 0;
+      opacity: 0 !important;
     }
     &-leave-active {
       position: absolute;
@@ -2647,6 +2900,19 @@ $highlight-colors-dark: #eee, #e6ee9c, #90caf9, #b39ddb, #fff59d;
         color: #ff0000;
       }
     }
+  }
+  #planner-mini-setting {
+    padding: 0;
+    overflow: visible;
+  }
+  .planner-setting-switches {
+    font-weight: 400;
+    .mdui-switch {
+      display: table;
+    }
+  }
+  .mdui-slider-discrete .mdui-slider-thumb span {
+    top: 7px;
   }
 }
 .mobile-screen #arkn-material {

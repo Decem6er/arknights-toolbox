@@ -1,4 +1,3 @@
-/*eslint-disable */
 const _ = require('lodash');
 const Axios = require('axios');
 const Fse = require('fs-extra');
@@ -31,7 +30,7 @@ function get(url, filePath, retry = 10) {
   })
     .then(r => saveStream2File(r.data, filePath))
     .catch(e => {
-      if (retry === 0) {
+      if (retry <= 0) {
         console.error(`ERROR ${url}`);
         throw e;
       }
@@ -53,17 +52,17 @@ function getTinied(url, filePath, retry = 10) {
           'User-Agent': ua,
           'X-Forwarded-For': getRandomIP(),
         },
-      })
+      }),
     )
     .then(({ data }) =>
       Axios.get(data.output.url, {
         responseType: 'stream',
         headers: { 'User-Agent': ua },
-      })
+      }),
     )
     .then(({ data }) => saveStream2File(data, filePath))
     .catch(e => {
-      if (retry === 0) {
+      if (retry <= 0) {
         console.error(`ERROR ${url}`);
         throw e;
       }
